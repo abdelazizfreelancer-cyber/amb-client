@@ -60,10 +60,76 @@ async function loadCommercialOptions(){
 async function loadSiteSettings(){
   const { data, error } = await supabaseClient
     .from('site_settings')
-    .select('key, value')
-    .eq('key', 'about_photo_url')
-    .maybeSingle();
-  if(!error && data && data.value){ SITE_CONTENT.photo = data.value; }
+    .select('key, value');
+  if(error || !data) return;
+  data.forEach(row => {
+    if(row.key === 'about_photo_url' && row.value){ SITE_CONTENT.photo = row.value; }
+    if(row.key === 'meta_pixel_id' && row.value){ initMetaPixel(row.value); }
+    if(row.key === 'theme_config' && row.value){
+      try{ applyThemeConfig(JSON.parse(row.value)); }catch(e){ console.error('theme_config غير صالح', e); }
+    }
+  });
+}
+
+/* ===================== THEME CUSTOMIZATION (شكل الموقع) ===================== */
+// بيتطبّق أوتوماتيك لو عبدالعزيز غيّر الألوان/الخطوط من الداش بورد (تبويب "شكل الموقع")
+const loadedGoogleFonts = new Set();
+function ensureGoogleFontLoaded(fontName){
+  if(!fontName || loadedGoogleFonts.has(fontName)) return;
+  loadedGoogleFonts.add(fontName);
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(fontName)}:wght@400;600;700;800&display=swap`;
+  document.head.appendChild(link);
+}
+function shadeHexColor(hex, percent){
+  // percent موجب = أفتح، سالب = أغمق
+  let h = hex.replace('#','');
+  if(h.length === 3) h = h.split('').map(c => c+c).join('');
+  const num = parseInt(h, 16);
+  let r = (num >> 16), g = (num >> 8 & 0x00FF), b = (num & 0x0000FF);
+  r = Math.min(255, Math.max(0, Math.round(r + (percent < 0 ? r : (255 - r)) * percent)));
+  g = Math.min(255, Math.max(0, Math.round(g + (percent < 0 ? g : (255 - g)) * percent)));
+  b = Math.min(255, Math.max(0, Math.round(b + (percent < 0 ? b : (255 - b)) * percent)));
+  return `#${((1<<24)+(r<<16)+(g<<8)+b).toString(16).slice(1)}`;
+}
+function applyThemeConfig(cfg){
+  if(!cfg) return;
+  const root = document.documentElement.style;
+  if(cfg.primaryColor){
+    root.setProperty('--green-900', cfg.primaryColor);
+    root.setProperty('--green-950', shadeHexColor(cfg.primaryColor, -0.25));
+    root.setProperty('--green-800', shadeHexColor(cfg.primaryColor, 0.15));
+  }
+  if(cfg.accentColor){
+    root.setProperty('--gold', cfg.accentColor);
+    root.setProperty('--gold-light', shadeHexColor(cfg.accentColor, 0.35));
+  }
+  if(cfg.headingFont){ ensureGoogleFontLoaded(cfg.headingFont); root.setProperty('--font-heading', `'${cfg.headingFont}'`); }
+  if(cfg.bodyFont){ ensureGoogleFontLoaded(cfg.bodyFont); root.setProperty('--font-body', `'${cfg.bodyFont}'`); }
+}
+
+/* ===================== META PIXEL (فيسبوك/إنستجرام) ===================== */
+// بيتركّب أوتوماتيك لو عبدالعزيز حط Pixel ID من الداش بورد (تبويب "الحسابات")
+function initMetaPixel(pixelId){
+  if(window.fbq) return; // مركّب قبل كده، مايتكررش
+  (function(f,b,e,v,n,t,s){
+    if(f.fbq) return;
+    n = f.fbq = function(){ n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments); };
+    if(!f._fbq) f._fbq = n;
+    n.push = n; n.loaded = true; n.version = '2.0'; n.queue = [];
+    t = b.createElement(e); t.async = true; t.src = v;
+    s = b.getElementsByTagName(e)[0]; s.parentNode.insertBefore(t, s);
+  })(window, document, 'script', 'https://connect.facebook.net/en_US/fbevents.js');
+  fbq('init', pixelId);
+  fbq('track', 'PageView');
+
+  const noscript = document.createElement('noscript');
+  const img = document.createElement('img');
+  img.height = 1; img.width = 1; img.style.display = 'none';
+  img.src = `https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1`;
+  noscript.appendChild(img);
+  document.body.appendChild(noscript);
 }
 
 /* ===================== STATE ===================== */
@@ -207,7 +273,7 @@ async function renderContractTab(){
       <div id="printableContract" class="contract-box">
         <pre>${contract.contract_text}</pre>
         <div style="margin-top:20px;border-top:1px dashed var(--line);padding-top:16px;">
-          <div style="font-family:'Cairo';font-size:12px;color:var(--ink-dim);margin-bottom:8px;">توقيعك — بتاريخ ${new Date(contract.signed_at).toLocaleString('ar-EG')}</div>
+          <div style="font-family:var(--font-heading);font-size:12px;color:var(--ink-dim);margin-bottom:8px;">توقيعك — بتاريخ ${new Date(contract.signed_at).toLocaleString('ar-EG')}</div>
           <img src="${contract.signature_data_url}" style="max-width:260px;border:1px solid var(--line);border-radius:6px;">
         </div>
       </div>
@@ -309,8 +375,7 @@ async function renderMeetingsTab(){
   const { data: slots } = await supabaseClient.from('meeting_slots').select('id, start_time, end_time').order('start_time', { ascending:true });
   const { data: bookings } = await supabaseClient.from('meeting_bookings').select('slot_id');
   const bookedIds = new Set((bookings||[]).map(b => b.slot_id));
-  // الفترة تختفي لو انتهى وقتها (end_time فات)، سواء اليوم خلص أو الفترة نفسها عدت، حتى لو محدش حجزها
-  const upcoming = (slots||[]).filter(s => new Date(s.end_time) > new Date());
+  const upcoming = (slots||[]).filter(s => new Date(s.start_time) > new Date());
 
   if(upcoming.length === 0){
     container.innerHTML = `<div class="placeholder-panel"><div class="icon">📅</div><h3>مفيش مواعيد متاحة دلوقتي</h3><p>تواصل معايا عبر واتساب عشان نتفق على معاد.</p></div>`;
@@ -348,9 +413,11 @@ function renderMeetSlotsList(daySlots, bookedIds){
   const list = document.getElementById('meetSlotsList');
   list.innerHTML = daySlots.map(s => {
     const isBooked = bookedIds.has(s.id);
-    const start = new Date(s.start_time).toLocaleTimeString('ar-EG', { hour:'2-digit', minute:'2-digit' });
-    const end = new Date(s.end_time).toLocaleTimeString('ar-EG', { hour:'2-digit', minute:'2-digit' });
-    return `<button class="meet-slot-btn" data-id="${s.id}" ${isBooked?'disabled':''}>${start} — ${end} ${isBooked ? '— محجوز' : ''}</button>`;
+    const startTxt = new Date(s.start_time).toLocaleTimeString('ar-EG', { hour:'2-digit', minute:'2-digit' });
+    const timeLabel = s.end_time
+      ? `${startTxt} – ${new Date(s.end_time).toLocaleTimeString('ar-EG', { hour:'2-digit', minute:'2-digit' })}`
+      : startTxt;
+    return `<button class="meet-slot-btn" data-id="${s.id}" ${isBooked?'disabled':''}>${timeLabel} ${isBooked ? '— محجوز' : ''}</button>`;
   }).join('');
   list.querySelectorAll('.meet-slot-btn:not(:disabled)').forEach(btn => {
     btn.addEventListener('click', () => bookSlot(btn.dataset.id));
@@ -360,7 +427,7 @@ function renderMeetSlotsList(daySlots, bookedIds){
 async function bookSlot(slotId){
   const { error } = await supabaseClient.from('meeting_bookings').insert([{ slot_id: slotId, user_id: session.user.id }]);
   if(error){
-    if(error.code === '23505'){ alert('المعاد ده اتحجز لتوه، اختار معاد تاني.'); }
+    if(error.code === '23505'){ alert('في مشكلة: إما إن المعاد ده اتحجز لتوه من حد تاني، أو إنك محجوز بالفعل معاد وميقدرش تحجز أكتر من معاد واحد.'); }
     else{ alert('حصل خطأ، حاول تاني.'); console.error(error); }
     renderMeetingsTab();
     return;
@@ -370,13 +437,14 @@ async function bookSlot(slotId){
 
 function renderMeetingBooked(startTime, endTime, slotId){
   const container = document.getElementById('tabContent');
-  const startStr = new Date(startTime).toLocaleString('ar-EG');
-  const endStr = new Date(endTime).toLocaleTimeString('ar-EG', { hour:'2-digit', minute:'2-digit' });
+  const timeLabel = endTime
+    ? `${new Date(startTime).toLocaleString('ar-EG')} – ${new Date(endTime).toLocaleTimeString('ar-EG', { hour:'2-digit', minute:'2-digit' })}`
+    : new Date(startTime).toLocaleString('ar-EG');
   container.innerHTML = `
     <div class="meet-booked-card">
       <div class="mark">✓</div>
-      <h2 style="font-family:'Cairo';color:var(--green-900);">معادك محجوز</h2>
-      <p style="color:var(--ink-dim);">${startStr} — ${endStr}</p>
+      <h2 style="font-family:var(--font-heading);color:var(--green-900);">معادك محجوز</h2>
+      <p style="color:var(--ink-dim);">${timeLabel}</p>
       <div class="meet-countdown" id="countdownEl">--:--:--</div>
       <div id="meetLinkArea"></div>
     </div>
@@ -404,13 +472,21 @@ async function updateCountdown(startTime, slotId){
     linkFetched = true;
     const { data } = await supabaseClient.from('meeting_links').select('link').eq('slot_id', slotId).maybeSingle();
     const area = document.getElementById('meetLinkArea');
-    if(data && data.link && area){
-      area.innerHTML = `
-        <div class="meet-ready">
-          <p style="margin:0 0 10px;font-family:'Cairo';font-weight:700;color:var(--ok);">الميتينج قرّب — تقدر تدخل دلوقتي</p>
-          <a href="${data.link}" target="_blank"><button class="btn primary">ادخل الميتينج ↗</button></a>
-        </div>
-      `;
+    if(area){
+      if(data && data.link){
+        area.innerHTML = `
+          <div class="meet-ready">
+            <p style="margin:0 0 10px;font-family:var(--font-heading);font-weight:700;color:var(--ok);">الميتينج قرّب — تقدر تدخل دلوقتي</p>
+            <a href="${data.link}" target="_blank"><button class="btn primary">ادخل الميتينج ↗</button></a>
+          </div>
+        `;
+      } else {
+        area.innerHTML = `
+          <div class="meet-ready">
+            <p style="margin:0;font-family:var(--font-heading);font-weight:700;color:var(--ok);">الميتينج قرّب — عبدالعزيز هيتواصل معاك مباشرة على واتساب بتفاصيل الدخول</p>
+          </div>
+        `;
+      }
     }
   }
 }
@@ -567,6 +643,7 @@ async function doSignup(){
   if(error){ showAuthError(mapAuthError(error.message)); btn.disabled = false; btn.textContent = "إنشاء الحساب والبدء"; return; }
 
   syncClientToSheet(name, phone, email);
+  if(window.fbq){ fbq('track', 'CompleteRegistration'); }
 
   if(data.session){
     session = data.session;
@@ -806,6 +883,7 @@ async function submitBrief(){
     return;
   }
   myResponse = record;
+  if(window.fbq){ fbq('track', 'Lead'); }
   renderBriefSummary();
 }
 
