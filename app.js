@@ -416,7 +416,9 @@ function renderAccountTab(){
   document.getElementById('tabContent').innerHTML = `
     <div class="account-panel">
       <div class="avatar-upload-wrap">
-        <img class="avatar-current" id="avatarImg" src="${avatarUrl || 'assets/profile.jpg'}" alt="صورتك">
+        <div class="avatar-current avatar-placeholder" id="avatarWrap">
+          ${avatarUrl ? `<img id="avatarImg" src="${avatarUrl}" alt="صورتك">` : `<span id="avatarImg" class="avatar-empty-icon">👤</span>`}
+        </div>
         <div class="avatar-edit-btn" id="avatarEditBtn">✎</div>
         <input type="file" id="avatarInput" accept="image/*" style="display:none;">
       </div>
@@ -444,7 +446,7 @@ async function handleAvatarUpload(e){
   const { error: updErr } = await supabaseClient.auth.updateUser({ data: { avatar_url: newUrl } });
   if(updErr){ statusEl.textContent = "اتحفظت الصورة بس حصل خطأ بسيط، جرب تحدّث الصفحة"; return; }
   avatarUrl = newUrl;
-  document.getElementById('avatarImg').src = newUrl;
+  document.getElementById('avatarWrap').innerHTML = `<img id="avatarImg" src="${newUrl}" alt="صورتك">`;
   statusEl.textContent = "تم تحديث الصورة ✓";
 }
 
