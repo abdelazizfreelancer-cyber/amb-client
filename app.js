@@ -31,20 +31,8 @@ const SITE_CONTENT = {
 باختصار: كل معلومة بتكتبها في الـ Brief بتساعدني أخد قرار إعلاني أفضل. حاول تجاوب بأكبر قدر ممكن من التفاصيل، لأن نجاح الحملة يبدأ من فهم المشروع بشكل صحيح.`
 };
 
-/* ===================== STATIC BRIEF CONFIG ===================== */
-const SECTIONS_META = [
-  {key:"s1", part:"PART 01 — DISCOVERY", num:"01", title:"نبذة عن البراند", desc:"الأساسيات اللي بنبني عليها كل حاجة تانية"},
-  {key:"s2", part:"PART 01 — DISCOVERY", num:"02", title:"الوضع التشغيلي الحالي", desc:"إزاي البيزنس شغال دلوقتي على أرض الواقع"},
-  {key:"s3", part:"PART 01 — DISCOVERY", num:"03", title:"المنتجات والتسعير", desc:"عشان نحدد إعلانات هتدفع على إيه بالظبط"},
-  {key:"s4", part:"PART 01 — DISCOVERY", num:"04", title:"الجمهور المستهدف", desc:"مين بالظبط اللي بيشتري (أو المفروض يشتري)"},
-  {key:"s5", part:"PART 01 — DISCOVERY", num:"05", title:"المنافسين والسوق", desc:"عشان نعرف نموضعكم صح جنبهم"},
-  {key:"s6", part:"PART 01 — DISCOVERY", num:"06", title:"التجربة التسويقية السابقة", desc:"عشان نبني على اللي اتعمل، مش نبدأ من صفر"},
-  {key:"s7", part:"PART 02 — GOALS & SETUP", num:"07", title:"الأهداف من التعاون", desc:"عشان نقيس النجاح صح من الأول"},
-  {key:"s8", part:"PART 02 — GOALS & SETUP", num:"08", title:"الميزانية", desc:"رقم الإعلانات الفعلي، منفصل عن أتعاب الشغل"},
-  {key:"s9", part:"PART 02 — GOALS & SETUP", num:"09", title:"المحل كجزء من الخطة", desc:"بما إن عندكم محل قائم، هنستغله صح في الحملات"},
-  {key:"s10", part:"PART 02 — GOALS & SETUP", num:"10", title:"الأنظمة والدفع الإلكتروني", desc:"التفاصيل التقنية اللي هتوفر وقت بعد كده"},
-  {key:"commercial", part:"PART 03 — COMMERCIALS", num:"—", title:"نتحاسب إزاي؟", desc:"هنراجعها مع بعض ونختار الأنسب لحجم شغلك", isCommercial:true}
-];
+/* ===================== BRIEF SECTIONS (بتتحمّل من قاعدة البيانات — قابلة للإضافة/الحذف من الداش بورد) ===================== */
+let sections = [];
 // القيمتين دول fallback بس لو حصل خطأ في تحميلهم من القاعدة، الأصل إنهم يتحمّلوا ديناميك
 let OPTIONS_INFO = [
   {tag:"OPTION A", title:"نسبة من المبيعات (Performance)", body:"نسبة من المبيعات الفعلية اللي بتيجي من الحملات، وغالبًا بتتحدد بحد أدنى شهري بسيط بالإضافة للنسبة.", fit:"لو عندكم تتبع مبيعات دقيق وواضح (بيكسل شغال، أونلاين بشكل أساسي)."},
@@ -160,9 +148,19 @@ async function loadQuestions(){
     multi: q.multi, options: q.options, required: q.required
   }));
 }
+async function loadSections(){
+  const { data, error } = await supabaseClient
+    .from('question_sections')
+    .select('section_key, part, num, title, description, is_commercial, sort_order')
+    .order('sort_order', { ascending: true });
+  if(error){ console.error('load sections error', error); sections = []; return; }
+  sections = (data || []).map(s => ({
+    key: s.section_key, part: s.part, num: s.num, title: s.title, desc: s.description, isCommercial: s.is_commercial
+  }));
+}
 function rebuildSteps(){
   questions.forEach(q => { if(!(q.id in answers)) answers[q.id] = q.multi ? [] : ""; });
-  steps = SECTIONS_META
+  steps = sections
     .map(meta => ({ meta, qs: questions.filter(q => q.sectionKey === meta.key) }))
     .filter(s => s.qs.length > 0);
 }
@@ -172,6 +170,7 @@ async function boot(){
   const { data } = await supabaseClient.auth.getSession();
   session = data.session;
   await loadQuestions();
+  await loadSections();
   await loadCommercialOptions();
   await loadSiteSettings();
   rebuildSteps();
