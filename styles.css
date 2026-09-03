@@ -242,7 +242,7 @@ button.btn.small{ padding:7px 14px; font-size:12px; }
 
 /* ===================== WHATSAPP FLOATING BUTTON ===================== */
 .whatsapp-fab{
-  position:fixed; bottom:22px; left:22px; z-index:999;
+  position:fixed; bottom:22px; right:22px; z-index:999;
   width:56px; height:56px; border-radius:50%;
   background:#25D366; display:flex; align-items:center; justify-content:center;
   box-shadow:0 6px 20px rgba(0,0,0,0.25); cursor:pointer; border:none;
@@ -250,6 +250,10 @@ button.btn.small{ padding:7px 14px; font-size:12px; }
 }
 .whatsapp-fab:hover{ transform:scale(1.06); }
 .whatsapp-fab svg{ width:28px; height:28px; }
+@media (max-width:560px){
+  .whatsapp-fab{ width:48px; height:48px; bottom:16px; right:16px; }
+  .whatsapp-fab svg{ width:24px; height:24px; }
+}
 
 /* top user bar (client site, shows name + logout) */
 .user-bar{

@@ -131,7 +131,8 @@ let myResponse = null;   // آخر بريف اتبعت من المستخدم د�
 let myRequest = null;    // آخر طلب "بريف جديد" (لو موجود)
 let avatarUrl = null;
 
-const answers = { brandName:"", industry:"" };
+const savedAnswers = JSON.parse(localStorage.getItem('brief_draft') || '{}');
+const answers = { brandName:"", industry:"", ...savedAnswers };
 
 function genRef(){ return "REF-" + Math.floor(100000 + Math.random()*900000); }
 let refCode = genRef();
@@ -602,12 +603,16 @@ function renderAuth(){
           <div class="auth-field"><label>رقم الهاتف</label><input type="tel" id="af_phone" placeholder="01xxxxxxxxx"></div>
         ` : ``}
         <div class="auth-field"><label>البريد الإلكتروني</label><input type="email" id="af_email" placeholder="example@email.com"></div>
-        <div class="auth-field"><label>كلمة السر</label><input type="password" id="af_password" placeholder="8 أحرف على الأقل"></div>
+        <div class="auth-field" style="position:relative;">
+          <label>كلمة السر</label>
+          <input type="password" id="af_password" placeholder="8 أحرف على الأقل" style="padding-left:40px;">
+          <button type="button" id="togglePassBtn" style="position:absolute;left:10px;top:32px;background:none;border:none;cursor:pointer;font-size:16px;">👁️</button>
+        </div>
         <button class="btn primary auth-submit" id="authSubmitBtn">${isSignup ? 'إنشاء الحساب والبدء' : 'دخول'}</button>
         <div class="auth-switch">
           ${isSignup
-            ? `عندك حساب بالفعل؟ <button id="switchToLogin">سجّل دخول</button>`
-            : `أول مرة تدخل؟ <button id="switchToSignup">اعمل حساب جديد</button>`}
+            ? `عندك حساب بالفعل؟ <button type="button" id="switchToLogin">سجّل دخول</button>`
+            : `أول مرة تدخل؟ <button type="button" id="switchToSignup">اعمل حساب جديد</button><br><button type="button" id="forgotPassBtn" style="margin-top:10px;">نسيت الباسورد؟</button>`}
         </div>
       </div>
     </div>
@@ -615,6 +620,24 @@ function renderAuth(){
   const switchBtn = document.getElementById(isSignup ? 'switchToLogin' : 'switchToSignup');
   switchBtn.addEventListener('click', () => { authMode = isSignup ? "login" : "signup"; renderAuth(); });
   document.getElementById('authSubmitBtn').addEventListener('click', () => isSignup ? doSignup() : doLogin());
+  document.getElementById('togglePassBtn').addEventListener('click', (e) => {
+    const input = document.getElementById('af_password');
+    if(input.type === 'password'){ input.type = 'text'; e.target.textContent = '🙈'; }
+    else{ input.type = 'password'; e.target.textContent = '👁️'; }
+  });
+  const forgotBtn = document.getElementById('forgotPassBtn');
+  if(forgotBtn){
+    forgotBtn.addEventListener('click', async () => {
+      const email = document.getElementById('af_email').value.trim();
+      if(!email){ showAuthError('اكتب الإيميل الأول عشان نبعتلك رابط استعادة الباسورد'); return; }
+      forgotBtn.disabled = true; forgotBtn.textContent = 'جاري الإرسال...';
+      const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin
+      });
+      if(error){ showAuthError('حصل خطأ: ' + error.message); forgotBtn.disabled = false; forgotBtn.textContent = 'نسيت الباسورد؟'; }
+      else { alert('بعتنالك رابط على الإيميل عشان تغير الباسورد.'); forgotBtn.disabled = false; forgotBtn.textContent = 'نسيت الباسورد؟'; }
+    });
+  }
 }
 
 function showAuthError(msg){
@@ -692,6 +715,7 @@ async function logout(){
   activeTab = "brief";
   myResponse = null;
   refCode = genRef();
+  localStorage.removeItem('brief_draft');
   Object.keys(answers).forEach(k => { answers[k] = Array.isArray(answers[k]) ? [] : ""; });
   render();
 }
@@ -731,14 +755,16 @@ function renderFieldHtml(q){
   return `<div class="field"><label>${q.label}</label>${inner}</div>`;
 }
 function bindFieldEvents(container, onChange){
+  const saveDraft = () => localStorage.setItem('brief_draft', JSON.stringify(answers));
   container.querySelectorAll('input[data-key], textarea[data-key]').forEach(el => {
-    el.addEventListener('input', e => { answers[e.target.dataset.key] = e.target.value; onChange(); });
+    el.addEventListener('input', e => { answers[e.target.dataset.key] = e.target.value; saveDraft(); onChange(); });
   });
   container.querySelectorAll('.chip').forEach(chip => {
     chip.addEventListener('click', () => {
       const key = chip.dataset.key, multi = chip.dataset.multi === "true", v = chip.dataset.val;
-      if(multi){ const arr = answers[key]; const i = arr.indexOf(v); if(i>-1) arr.splice(i,1); else arr.push(v); }
+      if(multi){ const arr = answers[key] || []; const i = arr.indexOf(v); if(i>-1) arr.splice(i,1); else arr.push(v); answers[key] = arr; }
       else{ answers[key] = (answers[key] === v) ? "" : v; }
+      saveDraft();
       renderWizardStep();
     });
   });
@@ -765,6 +791,7 @@ async function handleQuestionFileUpload(e, onChange){
   if(upErr){ progressEl.textContent = "حصل خطأ في الرفع، حاول تاني"; console.error(upErr); return; }
   const { data: pub } = supabaseClient.storage.from('brief-uploads').getPublicUrl(path);
   answers[qId] = pub.publicUrl;
+  localStorage.setItem('brief_draft', JSON.stringify(answers));
   onChange();
   renderWizardStep();
 }
