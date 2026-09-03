@@ -274,7 +274,10 @@ async function renderContractTab(){
         <pre>${contract.contract_text}</pre>
         <div style="margin-top:20px;border-top:1px dashed var(--line);padding-top:16px;">
           <div style="font-family:var(--font-heading);font-size:12px;color:var(--ink-dim);margin-bottom:8px;">توقيعك — بتاريخ ${new Date(contract.signed_at).toLocaleString('ar-EG')}</div>
-          <img src="${contract.signature_data_url}" style="max-width:260px;border:1px solid var(--line);border-radius:6px;">
+          ${contract.signature_data_url && contract.signature_data_url.startsWith('data:image') 
+            ? `<img src="${contract.signature_data_url}" style="max-width:260px;border:1px solid var(--line);border-radius:6px;">`
+            : `<div style="font-family:var(--font-heading);font-size:18px;font-weight:bold;color:var(--green-900);">${contract.signature_data_url || ''}</div>`
+          }
         </div>
       </div>
       <div class="actions" style="margin-top:16px;">
@@ -291,62 +294,35 @@ async function renderContractTab(){
       <pre>${contract.contract_text}</pre>
     </div>
     <div class="signature-pad-wrap">
-      <label>وقّع هنا بإصبعك أو الماوس</label>
-      <canvas id="signatureCanvas"></canvas>
+      <label style="display:block;margin-bottom:8px;font-weight:bold;">اكتب اسمك للموافقة على العقد</label>
+      <input type="text" id="signatureNameInput" placeholder="الاسم الثلاثي" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;font-family:var(--font-body);margin-bottom:12px;">
       <div class="sig-actions">
-        <button class="btn" id="clearSigBtn">مسح التوقيع</button>
         <button class="btn primary" id="submitSigBtn" disabled>توقيع وإرسال</button>
       </div>
       <div id="sigStatus" style="font-size:12px;color:var(--ink-dim);margin-top:8px;"></div>
     </div>
   `;
-  setupSignaturePad();
+  setupSignatureText();
 }
 
-function setupSignaturePad(){
-  const canvas = document.getElementById('signatureCanvas');
-  const ctx = canvas.getContext('2d');
+function setupSignatureText(){
+  const input = document.getElementById('signatureNameInput');
   const submitBtn = document.getElementById('submitSigBtn');
-  let drawing = false, hasDrawn = false;
 
-  function resize(){
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width; canvas.height = rect.height;
-    ctx.strokeStyle = '#143331'; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
-  }
-  resize();
-
-  function pos(e){
-    const rect = canvas.getBoundingClientRect();
-    const p = e.touches ? e.touches[0] : e;
-    return { x: p.clientX - rect.left, y: p.clientY - rect.top };
-  }
-  function start(e){ drawing = true; hasDrawn = true; const p = pos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); submitBtn.disabled = false; e.preventDefault(); }
-  function move(e){ if(!drawing) return; const p = pos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); e.preventDefault(); }
-  function end(){ drawing = false; }
-
-  canvas.addEventListener('mousedown', start);
-  canvas.addEventListener('mousemove', move);
-  window.addEventListener('mouseup', end);
-  canvas.addEventListener('touchstart', start);
-  canvas.addEventListener('touchmove', move);
-  canvas.addEventListener('touchend', end);
-
-  document.getElementById('clearSigBtn').addEventListener('click', () => {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    hasDrawn = false; submitBtn.disabled = true;
+  input.addEventListener('input', () => {
+    submitBtn.disabled = input.value.trim().length < 3;
   });
 
   submitBtn.addEventListener('click', async () => {
-    if(!hasDrawn) return;
+    const name = input.value.trim();
+    if(name.length < 3) return;
     const statusEl = document.getElementById('sigStatus');
     submitBtn.disabled = true; submitBtn.textContent = "جاري الإرسال...";
-    const dataUrl = canvas.toDataURL('image/png');
     try{
       const res = await fetch('/api/sign-contract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
-        body: JSON.stringify({ signatureDataUrl: dataUrl })
+        body: JSON.stringify({ signatureDataUrl: name }) // بنبعت الاسم كأنه التوقيع عشان منغيرش الـ API بشكل يكسر القديم
       });
       const json = await res.json();
       if(res.ok && json.ok){ renderContractTab(); }
