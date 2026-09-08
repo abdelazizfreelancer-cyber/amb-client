@@ -6,8 +6,13 @@ export default async function handler(req, res) {
   const user = await getRequestUser(req);
   if (!user) return res.status(401).json({ error: 'غير مسجل دخول' });
 
-  const { signatureDataUrl } = req.body || {};
-  if (!signatureDataUrl) return res.status(400).json({ error: 'مفيش توقيع' });
+  // بيقبل الاسم المكتوب كتوقيع (signatureName) أو صورة التوقيع القديمة (signatureDataUrl) للتوافق
+  const { signatureName, signatureDataUrl } = req.body || {};
+  const signatureValue = signatureName || signatureDataUrl;
+
+  if (!signatureValue || !signatureValue.trim()) {
+    return res.status(400).json({ error: 'من فضلك اكتب اسمك للتوقيع على العقد' });
+  }
 
   const supabase = supabaseAdmin();
 
@@ -24,7 +29,11 @@ export default async function handler(req, res) {
 
   const { error: updateErr } = await supabase
     .from('contracts')
-    .update({ status: 'signed', signature_data_url: signatureDataUrl, signed_at: new Date().toISOString() })
+    .update({
+      status: 'signed',
+      signature_data_url: signatureValue.trim(), // بنحفظ الاسم هنا (الحقل بيستقبل نص عادي)
+      signed_at: new Date().toISOString()
+    })
     .eq('user_id', user.id);
 
   if (updateErr) return res.status(500).json({ error: updateErr.message });
