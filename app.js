@@ -319,15 +319,43 @@ function setupSignatureText(){
     const statusEl = document.getElementById('sigStatus');
     submitBtn.disabled = true; submitBtn.textContent = "جاري الإرسال...";
     try{
+      // 1. محاولة التوقيع المباشر عبر Supabase Client (الأضمن والأسرع)
+      const { error: sbErr } = await supabaseClient
+        .from('contracts')
+        .update({
+          status: 'signed',
+          signature_data_url: name,
+          signed_at: new Date().toISOString()
+        })
+        .eq('user_id', session.user.id);
+
+      if(!sbErr){
+        renderContractTab();
+        return;
+      }
+
+      // 2. إذا لم تكن سياسة التعديل مفعلة في Supabase، نجرب عبر API السيرفر
       const res = await fetch('/api/sign-contract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
-        body: JSON.stringify({ signatureDataUrl: name }) // بنبعت الاسم كأنه التوقيع عشان منغيرش الـ API بشكل يكسر القديم
+        body: JSON.stringify({ signatureDataUrl: name })
       });
-      const json = await res.json();
-      if(res.ok && json.ok){ renderContractTab(); }
-      else{ statusEl.textContent = 'حصل خطأ: ' + (json.error || 'خطأ غير معروف'); submitBtn.disabled = false; submitBtn.textContent = "توقيع وإرسال"; }
-    }catch(err){ statusEl.textContent = 'حصل خطأ في الاتصال'; submitBtn.disabled = false; submitBtn.textContent = "توقيع وإرسال"; }
+      let json = {};
+      try { json = await res.json(); } catch(e) {}
+
+      if(res.ok && json.ok){
+        renderContractTab();
+      } else {
+        const errMsg = json.error || sbErr?.message || 'حدث خطأ أثناء التوقيع';
+        statusEl.textContent = 'حصل خطأ: ' + errMsg;
+        submitBtn.disabled = false;
+        submitBtn.textContent = "توقيع وإرسال";
+      }
+    }catch(err){
+      statusEl.textContent = 'حصل خطأ: ' + (err.message || 'خطأ غير معروف');
+      submitBtn.disabled = false;
+      submitBtn.textContent = "توقيع وإرسال";
+    }
   });
 }
 
