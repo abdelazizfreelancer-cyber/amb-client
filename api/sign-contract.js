@@ -1,41 +1,36 @@
 import { supabaseAdmin, getRequestUser } from './_utils.js';
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  try {
+    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const user = await getRequestUser(req);
-  if (!user) return res.status(401).json({ error: 'غير مسجل دخول' });
+    const user = await getRequestUser(req);
+    if (!user) return res.status(401).json({ error: 'غير مسجل دخول' });
 
-  // بيقبل الاسم المكتوب كتوقيع (signatureName) أو صورة التوقيع القديمة (signatureDataUrl) للتوافق
-  const { signatureName, signatureDataUrl } = req.body || {};
-  const signatureValue = signatureName || signatureDataUrl;
+    const { signatureDataUrl } = req.body || {};
+    if (!signatureDataUrl) return res.status(400).json({ error: 'مفيش توقيع' });
 
-  if (!signatureValue || !signatureValue.trim()) {
-    return res.status(400).json({ error: 'من فضلك اكتب اسمك للتوقيع على العقد' });
+    const supabase = supabaseAdmin();
+
+    // نتأكد إن العقد موجود، ولسه في انتظار التوقيع (مش موقّع قبل كده)
+    const { data: contract, error: fetchErr } = await supabase
+      .from('contracts')
+      .select('id, status')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (fetchErr) return res.status(500).json({ error: fetchErr.message });
+    if (!contract) return res.status(404).json({ error: 'مفيش عقد لسه متفعّل' });
+    if (contract.status === 'signed') return res.status(400).json({ error: 'العقد ده اتوقع بالفعل' });
+
+    const { error: updateErr } = await supabase
+      .from('contracts')
+      .update({ status: 'signed', signature_data_url: signatureDataUrl, signed_at: new Date().toISOString() })
+      .eq('user_id', user.id);
+
+    if (updateErr) return res.status(500).json({ error: updateErr.message });
+    return res.status(200).json({ ok: true });
+  } catch (err) {
+    return res.status(500).json({ error: err.message || 'خطأ غير متوقع في السيرفر' });
   }
-
-  const supabase = supabaseAdmin();
-
-  // نتأكد إن العقد موجود، ولسه في انتظار التوقيع (مش موقّع قبل كده)
-  const { data: contract, error: fetchErr } = await supabase
-    .from('contracts')
-    .select('id, status')
-    .eq('user_id', user.id)
-    .maybeSingle();
-
-  if (fetchErr) return res.status(500).json({ error: fetchErr.message });
-  if (!contract) return res.status(404).json({ error: 'مفيش عقد لسه متفعّل' });
-  if (contract.status === 'signed') return res.status(400).json({ error: 'العقد ده اتوقع بالفعل' });
-
-  const { error: updateErr } = await supabase
-    .from('contracts')
-    .update({
-      status: 'signed',
-      signature_data_url: signatureValue.trim(), // بنحفظ الاسم هنا (الحقل بيستقبل نص عادي)
-      signed_at: new Date().toISOString()
-    })
-    .eq('user_id', user.id);
-
-  if (updateErr) return res.status(500).json({ error: updateErr.message });
-  return res.status(200).json({ ok: true });
 }

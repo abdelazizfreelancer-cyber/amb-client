@@ -1,7 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 
 export function supabaseAdmin() {
-  return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const url = process.env.SUPABASE_URL || "https://ikzejyosymihahfliesl.supabase.co";
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!key) throw new Error("مفتاح SUPABASE_SERVICE_ROLE_KEY غير موجود في متغيرات Vercel");
+  return createClient(url, key);
 }
 
 // بيتأكد إن الشخص اللي بيبعت الطلب فعلاً مسجل دخول، ويرجع بياناته
