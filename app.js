@@ -564,11 +564,7 @@ function renderAbout(){
 
         <div class="about-hero">
           <div class="about-photo-col">
-            <div class="avatar-halo">
-              <img class="about-photo" src="${SITE_CONTENT.photo}" alt="${SITE_CONTENT.name}">
-              <div class="floating-pill-1">🎯 استراتيجيات مدروسة</div>
-              <div class="floating-pill-2">📈 ROAS 4.8x+</div>
-            </div>
+            <img class="about-photo" src="${SITE_CONTENT.photo}" alt="${SITE_CONTENT.name}">
             <h2 class="about-name">${SITE_CONTENT.name}</h2>
             <p class="about-role">${SITE_CONTENT.role}</p>
           </div>
@@ -578,7 +574,7 @@ function renderAbout(){
             <p class="about-bio">${SITE_CONTENT.bio}</p>
             <div class="about-stats">
               <div class="stat"><b>10</b><span>أقسام بريف اكتشاف</span></div>
-              <div class="stat"><b>4.8x</b><span>متوسط العائد الإعلاني</span></div>
+              <div class="stat"><b>1:1</b><span>متابعة مباشرة معايا</span></div>
               <div class="stat"><b>100%</b><span>خطة مبنية على بياناتك</span></div>
             </div>
           </div>
