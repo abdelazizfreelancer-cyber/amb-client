@@ -1,3 +1,13 @@
+// ضمان ضبط الـ Viewport للشاشات والموبايل تلقائيًا
+(function ensureMobileViewport(){
+  if(typeof document !== 'undefined' && !document.querySelector('meta[name="viewport"]')){
+    const m = document.createElement('meta');
+    m.name = 'viewport';
+    m.content = 'width=device-width, initial-scale=1.0, maximum-scale=5.0';
+    document.head.appendChild(m);
+  }
+})();
+
 /* ===================== SUPABASE CLIENT ===================== */
 const supabaseClient = window.supabase.createClient(
   window.APP_CONFIG.SUPABASE_URL,
