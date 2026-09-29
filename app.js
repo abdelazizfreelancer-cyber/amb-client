@@ -554,6 +554,10 @@ function setupWhatsapp(){
 /* ===================== ABOUT PAGE ===================== */
 function renderAbout(){
   const root = document.getElementById('appRoot');
+  // شيل كلاس wrap عشان الصفحة تملأ الشاشة كاملة بدون حواف بيضاء
+  root.classList.remove('wrap');
+  root.style.padding = '0';
+  root.style.maxWidth = 'none';
   root.innerHTML = `
     <div class="about-page">
       <div class="about-inner">
@@ -604,6 +608,10 @@ function renderAbout(){
 /* ===================== AUTH (LOGIN / SIGNUP) ===================== */
 function renderAuth(){
   const root = document.getElementById('appRoot');
+  // أرجع كلاس wrap للصفحات التانية
+  root.classList.add('wrap');
+  root.style.padding = '';
+  root.style.maxWidth = '';
   const isSignup = authMode === "signup";
   root.innerHTML = `
     <div class="auth-wrap">

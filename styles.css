@@ -202,16 +202,19 @@ button.btn.small{ padding:7px 14px; font-size:12px; }
 .about-page{
   background: linear-gradient(160deg, var(--green-950), var(--green-800));
   color:#f4f2ea; position:relative; overflow:hidden;
-  width:100vw;
-  margin-left:calc(50% - 50vw);
-  margin-right:calc(50% - 50vw);
+  /* كسر من الـ .wrap لملء الشاشة كاملة بدون حواف بيضاء */
+  width: 100vw;
+  min-height: 100vh;
+  margin-left: calc(-50vw + 50%);
+  margin-right: calc(-50vw + 50%);
+  box-sizing: border-box;
 }
 .about-page::after{
   content:""; position:absolute; inset:0;
   background-image: repeating-linear-gradient(90deg, transparent, transparent 9px, rgba(255,255,255,0.03) 9px, rgba(255,255,255,0.03) 10px);
   pointer-events:none;
 }
-.about-inner{ max-width:1200px; margin:0 auto; padding:36px 48px 60px; position:relative; }
+.about-inner{ max-width:1000px; margin:0 auto; padding:36px 48px 60px; position:relative; }
 @media (max-width:900px){ .about-inner{ padding:28px 22px 44px; } }
 .about-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:30px; }
 
@@ -454,56 +457,74 @@ button.btn.small{ padding:7px 14px; font-size:12px; }
     min-height:44px;
   }
 
-  /* تصحيح صفحة عن نفسي لتجنب السكرول الأفقي */
+  /* تصحيح صفحة عن نفسي — ملء الشاشة الكاملة بدون حواف بيضاء */
   .about-page{
-    width:100% !important;
-    margin-left:0 !important;
-    margin-right:0 !important;
+    width: 100vw !important;
+    min-height: 100vh !important;
+    margin-left: calc(-50vw + 50%) !important;
+    margin-right: calc(-50vw + 50%) !important;
+    padding-bottom: 40px !important;
   }
   .about-inner{
-    padding:20px 16px 36px !important;
+    padding: 24px 18px 40px !important;
+    max-width: 100% !important;
   }
   .about-top{
-    margin-bottom:20px;
-    flex-wrap:wrap;
-    gap:10px;
+    margin-bottom: 24px !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
   }
   .about-hero{
-    grid-template-columns:1fr !important;
-    gap:18px !important;
-    text-align:center !important;
-    padding:10px 0 24px !important;
-    margin-bottom:24px !important;
+    grid-template-columns: 1fr !important;
+    gap: 24px !important;
+    text-align: center !important;
+    padding: 0 0 24px !important;
+    margin-bottom: 24px !important;
+  }
+  .about-photo-col{
+    align-items: center !important;
   }
   .about-photo{
-    width:160px !important;
-    height:160px !important;
+    width: 140px !important;
+    height: 140px !important;
   }
   .about-copy h1{
-    font-size:22px !important;
-    line-height:1.4 !important;
+    font-size: 22px !important;
+    line-height: 1.5 !important;
+    text-align: center !important;
   }
   .about-copy .about-bio{
-    font-size:13.5px !important;
-    line-height:1.9 !important;
+    font-size: 13.5px !important;
+    line-height: 1.95 !important;
+    text-align: right !important;
   }
   .about-stats{
-    justify-content:center !important;
-    gap:18px !important;
+    justify-content: center !important;
+    gap: 10px !important;
   }
+  .about-stats .stat{
+    flex: 1 1 calc(33% - 10px) !important;
+    min-width: 80px !important;
+    padding: 10px 12px !important;
+  }
+  .about-stats .stat b{ font-size: 18px !important; }
+  .about-stats .stat span{ font-size: 11px !important; }
   .brief-explain-grid{
-    grid-template-columns:1fr !important;
-    gap:14px !important;
-    margin-bottom:24px !important;
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+    margin-bottom: 24px !important;
   }
   .about-cta-row{
-    flex-direction:column !important;
-    align-items:stretch !important;
-    text-align:center !important;
-    padding:18px !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    text-align: center !important;
+    padding: 20px !important;
   }
+  .about-cta-row p{ text-align: center !important; max-width: 100% !important; }
   .about-cta-row button{
-    width:100% !important;
+    width: 100% !important;
+    margin-top: 14px !important;
   }
 
   /* إزالة المسافات الكبيرة يمين الحقول على الموبايل */
